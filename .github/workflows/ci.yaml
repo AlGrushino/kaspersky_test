@@ -23,7 +23,7 @@ jobs:
           cache: true
       - name: Install goimports
         run: |
-          go run golang.org/x/tools/cmd/goimports@v0.47.1 -l -w .
+          go run golang.org/x/tools/cmd/goimports@v0.47.0 -l -w .
           git diff --exit-code
       - name: Check formatting
         run: |
