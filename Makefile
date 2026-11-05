@@ -3,7 +3,7 @@
 GO ?= go
 GOIMPORTS ?= goimports
 GOLANGCI ?= golangci-lint
-GOIMPORTS_VERSION ?= v0.47.1
+GOIMPORTS_VERSION ?= v0.47.0
 
 build:
 	$(GO) build ./...
