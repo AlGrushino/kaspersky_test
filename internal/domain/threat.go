@@ -86,3 +86,43 @@ type UpdateThreatInput struct {
 	FirstSeenAt *time.Time
 	LastSeenAt  *time.Time
 }
+
+func (in CreateThreatInput) ToThreat() Threat {
+	return Threat{
+		MD5:         in.MD5,
+		Name:        in.Name,
+		Description: in.Description,
+		Severity:    in.Severity,
+		Type:        in.Type,
+		Status:      in.Status,
+		Family:      in.Family,
+		Source:      in.Source,
+		Confidence:  in.Confidence,
+		Tags:        in.Tags,
+		SHA256:      in.SHA256,
+		FileSize:    in.FileSize,
+		FileType:    in.FileType,
+		FirstSeenAt: in.FirstSeenAt,
+		LastSeenAt:  in.LastSeenAt,
+	}
+}
+
+func (in UpdateThreatInput) ToThreat(md5 string) Threat {
+	return Threat{
+		MD5:         md5,
+		Name:        in.Name,
+		Description: in.Description,
+		Severity:    in.Severity,
+		Type:        in.Type,
+		Status:      in.Status,
+		Family:      in.Family,
+		Source:      in.Source,
+		Confidence:  in.Confidence,
+		Tags:        in.Tags,
+		SHA256:      in.SHA256,
+		FileSize:    in.FileSize,
+		FileType:    in.FileType,
+		FirstSeenAt: in.FirstSeenAt,
+		LastSeenAt:  in.LastSeenAt,
+	}
+}

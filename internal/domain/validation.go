@@ -1,15 +1,25 @@
 package domain
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 var (
 	md5Pattern    = regexp.MustCompile(`^[a-fA-F0-9]{32}$`)
 	sha256Pattern = regexp.MustCompile(`^[a-fA-F0-9]{64}$`)
+)
+
+const (
+	maxNameLen        = 255
+	maxDescriptionLen = 4096
+	maxFamilyLen      = 255
+	maxSourceLen      = 255
+	maxFileTypeLen    = 128
+	maxTagsCount      = 20
+	maxTagLen         = 64
 )
 
 func NormalizeMD5(s string) (string, error) {
@@ -55,20 +65,20 @@ func (s ThreatStatus) Valid() bool {
 }
 
 func (t *Threat) Validate() error {
-	if l := len(strings.TrimSpace(t.Name)); l == 0 || l > 255 {
-		return fmt.Errorf("%w: name must be 1..255 chars", ErrValidation)
+	if l := utf8.RuneCountInString(strings.TrimSpace(t.Name)); l == 0 || l > maxNameLen {
+		return fmt.Errorf("%w: name must be 1..%d chars", ErrValidation, maxNameLen)
 	}
-	if t.Description != nil && len(*t.Description) > 4096 {
-		return fmt.Errorf("%w: description max 4096 chars", ErrValidation)
+	if t.Description != nil && utf8.RuneCountInString(*t.Description) > maxDescriptionLen {
+		return fmt.Errorf("%w: description max %d chars", ErrValidation, maxDescriptionLen)
 	}
-	if t.Family != nil && len(*t.Family) > 255 {
-		return fmt.Errorf("%w: family max 255 chars", ErrValidation)
+	if t.Family != nil && utf8.RuneCountInString(*t.Family) > maxFamilyLen {
+		return fmt.Errorf("%w: family max %d chars", ErrValidation, maxFamilyLen)
 	}
-	if t.Source != nil && len(*t.Source) > 255 {
-		return fmt.Errorf("%w: source max 255 chars", ErrValidation)
+	if t.Source != nil && utf8.RuneCountInString(*t.Source) > maxSourceLen {
+		return fmt.Errorf("%w: source max %d chars", ErrValidation, maxSourceLen)
 	}
-	if t.FileType != nil && len(*t.FileType) > 128 {
-		return fmt.Errorf("%w: file_type max 128 chars", ErrValidation)
+	if t.FileType != nil && utf8.RuneCountInString(*t.FileType) > maxFileTypeLen {
+		return fmt.Errorf("%w: file_type max %d chars", ErrValidation, maxFileTypeLen)
 	}
 	if t.Severity != nil && !t.Severity.Valid() {
 		return fmt.Errorf("%w: invalid severity %q", ErrValidation, *t.Severity)
@@ -85,13 +95,13 @@ func (t *Threat) Validate() error {
 	if t.FileSize != nil && *t.FileSize < 0 {
 		return fmt.Errorf("%w: file_size must be >= 0", ErrValidation)
 	}
-	if len(t.Tags) > 20 {
-		return fmt.Errorf("%w: tags max 20", ErrValidation)
+	if len(t.Tags) > maxTagsCount {
+		return fmt.Errorf("%w: tags max %d", ErrValidation, maxTagsCount)
 	}
 	seen := make(map[string]struct{}, len(t.Tags))
 	for _, tag := range t.Tags {
-		if l := len(tag); l == 0 || l > 64 {
-			return fmt.Errorf("%w: tag length must be 1..64", ErrValidation)
+		if l := utf8.RuneCountInString(tag); l == 0 || l > maxTagLen {
+			return fmt.Errorf("%w: tag length must be 1..%d", ErrValidation, maxTagLen)
 		}
 		if _, dup := seen[tag]; dup {
 			return fmt.Errorf("%w: duplicate tag %q", ErrValidation, tag)
@@ -104,7 +114,7 @@ func (t *Threat) Validate() error {
 		}
 	}
 	if t.FirstSeenAt != nil && t.LastSeenAt != nil && t.FirstSeenAt.After(*t.LastSeenAt) {
-		return errors.New("first_seen_at must be <= last_seen_at")
+		return fmt.Errorf("%w: first_seen_at must be <= last_seen_at", ErrValidation)
 	}
 	return nil
 }
