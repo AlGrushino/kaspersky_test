@@ -28,7 +28,12 @@ var _ StrictServerInterface = (*ThreatHandler)(nil)
 // GET /info/{md5}
 
 func (h ThreatHandler) GetInfoByMd5(ctx context.Context, request GetInfoByMd5RequestObject) (GetInfoByMd5ResponseObject, error) {
-	threat, err := h.service.Get(ctx, request.Md5)
+	md5, err := domain.NormalizeMD5(request.Md5)
+	if err != nil {
+		return GetInfoByMd5400JSONResponse(errorBody("invalid md5", err.Error())), nil
+	}
+
+	threat, err := h.service.Get(ctx, md5)
 
 	switch {
 	case err == nil:
@@ -81,7 +86,12 @@ func (h *ThreatHandler) UpdateThreat(ctx context.Context, request UpdateThreatRe
 		return UpdateThreat400JSONResponse(errorBody("invalid request body", "body is required")), nil
 	}
 
-	threat, err := h.service.Update(ctx, request.Md5, *request.Body)
+	md5, err := domain.NormalizeMD5(request.Md5)
+	if err != nil {
+		return UpdateThreat400JSONResponse(errorBody("invalid md5", err.Error())), nil
+	}
+
+	threat, err := h.service.Update(ctx, md5, *request.Body)
 
 	switch {
 	case err == nil:
