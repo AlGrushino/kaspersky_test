@@ -1,0 +1,444 @@
+openapi: 3.0.0
+info:
+  title: Information Exchange Service
+  description: API для обмена информацией об угрозах.
+  version: 1.0.0
+
+paths:
+  /info/{md5}:
+    get:
+      summary: Получить информацию об угрозе по MD5
+      description: Возвращает полную информацию об угрозе для указанного MD5-хеша.
+      operationId: getInfoByMd5
+      parameters:
+        - name: md5
+          in: path
+          required: true
+          description: MD5-хеш файла (32 символа, шестнадцатеричные цифры)
+          schema:
+            type: string
+            pattern: '^[a-fA-F0-9]{32}$'
+            example: "d41d8cd98f00b204e9800998ecf8427e"
+      responses:
+        '200':
+          description: Успешный ответ с информацией об угрозе
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreatResponse'
+        '400':
+          description: Некорректный формат MD5
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Угроза с указанным MD5 не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Обновить информацию об угрозе по MD5
+      description: >
+        Полностью заменяет информацию о существующей угрозе. Поля, отсутствующие
+        в запросе, сбрасываются в null/пустые значения. MD5 изменить нельзя.
+      operationId: updateThreat
+      parameters:
+        - name: md5
+          in: path
+          required: true
+          description: MD5-хеш обновляемой записи
+          schema:
+            type: string
+            pattern: '^[a-fA-F0-9]{32}$'
+            example: "d41d8cd98f00b204e9800998ecf8427e"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ThreatUpdateRequest'
+      responses:
+        '200':
+          description: Информация успешно обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreatResponse'
+        '400':
+          description: Некорректные данные запроса или MD5
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Угроза с указанным MD5 не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /info:
+    post:
+      summary: Создать новую запись об угрозе
+      description: Добавляет новую информацию об угрозе. MD5 должен быть уникальным.
+      operationId: createThreat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ThreatCreateRequest'
+      responses:
+        '201':
+          description: Запись успешно создана
+          headers:
+            Location:
+              description: URI созданной записи
+              schema:
+                type: string
+                example: "/info/d41d8cd98f00b204e9800998ecf8427e"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreatResponse'
+        '400':
+          description: Некорректные данные запроса (например, невалидный MD5)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Угроза с таким MD5 уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    Severity:
+      type: string
+      description: Уровень опасности угрозы
+      enum:
+        - low
+        - medium
+        - high
+        - critical
+      example: high
+
+    ThreatType:
+      type: string
+      description: Класс вредоносного ПО
+      enum:
+        - trojan
+        - virus
+        - worm
+        - ransomware
+        - spyware
+        - adware
+        - rootkit
+        - miner
+        - other
+      example: trojan
+
+    ThreatStatus:
+      type: string
+      description: Жизненный цикл записи об угрозе
+      enum:
+        - active
+        - inactive
+        - false_positive
+        - archived
+      example: active
+
+    ThreatCreateRequest:
+      type: object
+      required:
+        - md5
+        - name
+      properties:
+        md5:
+          type: string
+          pattern: '^[a-fA-F0-9]{32}$'
+          description: MD5-хеш файла (32 шестнадцатеричных символа)
+          example: "d41d8cd98f00b204e9800998ecf8427e"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Название угрозы
+          example: "Trojan.Win32.Generic"
+        description:
+          type: string
+          maxLength: 4096
+          description: Человекочитаемое описание угрозы
+          example: "Вредоносная программа, перехватывающая пользовательский ввод."
+        severity:
+          $ref: '#/components/schemas/Severity'
+        type:
+          $ref: '#/components/schemas/ThreatType'
+        status:
+          $ref: '#/components/schemas/ThreatStatus'
+        family:
+          type: string
+          maxLength: 255
+          description: Семейство вредоносного ПО
+          example: "Generic"
+        source:
+          type: string
+          maxLength: 255
+          description: Источник или фид threat intelligence
+          example: "Kaspersky Threat Intelligence"
+        confidence:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Достоверность данных в процентах
+          example: 95
+        tags:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          description: Произвольные метки для разметки и поиска
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+          example:
+            - windows
+            - executable
+        sha256:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+          description: SHA-256-хеш файла (64 шестнадцатеричных символа)
+          example: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        file_size:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Размер файла в байтах
+          example: 102400
+        file_type:
+          type: string
+          maxLength: 128
+          description: MIME-тип или расширение файла
+          example: "application/x-dosexec"
+        first_seen_at:
+          type: string
+          format: date-time
+          description: Дата и время первого обнаружения угрозы
+          example: "2026-01-15T10:30:00Z"
+        last_seen_at:
+          type: string
+          format: date-time
+          description: Дата и время последнего обнаружения угрозы
+          example: "2026-02-20T18:45:00Z"
+
+    ThreatUpdateRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Название угрозы
+          example: "Trojan.Win32.Generic"
+        description:
+          type: string
+          maxLength: 4096
+          description: Человекочитаемое описание угрозы
+          example: "Вредоносная программа, перехватывающая пользовательский ввод."
+        severity:
+          $ref: '#/components/schemas/Severity'
+        type:
+          $ref: '#/components/schemas/ThreatType'
+        status:
+          $ref: '#/components/schemas/ThreatStatus'
+        family:
+          type: string
+          maxLength: 255
+          description: Семейство вредоносного ПО
+          example: "Generic"
+        source:
+          type: string
+          maxLength: 255
+          description: Источник или фид threat intelligence
+          example: "Kaspersky Threat Intelligence"
+        confidence:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Достоверность данных в процентах
+          example: 95
+        tags:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          description: Произвольные метки для разметки и поиска
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+          example:
+            - windows
+            - executable
+        sha256:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+          description: SHA-256-хеш файла (64 шестнадцатеричных символа)
+          example: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        file_size:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Размер файла в байтах
+          example: 102400
+        file_type:
+          type: string
+          maxLength: 128
+          description: MIME-тип или расширение файла
+          example: "application/x-dosexec"
+        first_seen_at:
+          type: string
+          format: date-time
+          description: Дата и время первого обнаружения угрозы
+          example: "2026-01-15T10:30:00Z"
+        last_seen_at:
+          type: string
+          format: date-time
+          description: Дата и время последнего обнаружения угрозы
+          example: "2026-02-20T18:45:00Z"
+
+    ThreatResponse:
+      type: object
+      required:
+        - md5
+        - name
+        - created_at
+        - updated_at
+      properties:
+        md5:
+          type: string
+          pattern: '^[a-fA-F0-9]{32}$'
+          description: MD5-хеш
+          example: "d41d8cd98f00b204e9800998ecf8427e"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Название угрозы
+          example: "Trojan.Win32.Generic"
+        description:
+          type: string
+          maxLength: 4096
+          description: Человекочитаемое описание угрозы
+          example: "Вредоносная программа, перехватывающая пользовательский ввод."
+        severity:
+          $ref: '#/components/schemas/Severity'
+        type:
+          $ref: '#/components/schemas/ThreatType'
+        status:
+          $ref: '#/components/schemas/ThreatStatus'
+        family:
+          type: string
+          maxLength: 255
+          description: Семейство вредоносного ПО
+          example: "Generic"
+        source:
+          type: string
+          maxLength: 255
+          description: Источник или фид threat intelligence
+          example: "Kaspersky Threat Intelligence"
+        confidence:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Достоверность данных в процентах
+          example: 95
+        tags:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          description: Произвольные метки для разметки и поиска
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+          example:
+            - windows
+            - executable
+        sha256:
+          type: string
+          pattern: '^[a-fA-F0-9]{64}$'
+          description: SHA-256-хеш файла (64 шестнадцатеричных символа)
+          example: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        file_size:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Размер файла в байтах
+          example: 102400
+        file_type:
+          type: string
+          maxLength: 128
+          description: MIME-тип или расширение файла
+          example: "application/x-dosexec"
+        first_seen_at:
+          type: string
+          format: date-time
+          description: Дата и время первого обнаружения угрозы
+          example: "2026-01-15T10:30:00Z"
+        last_seen_at:
+          type: string
+          format: date-time
+          description: Дата и время последнего обнаружения угрозы
+          example: "2026-02-20T18:45:00Z"
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Дата и время создания записи (управляется сервером)
+          example: "2026-01-15T10:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: Дата и время последнего изменения записи (управляется сервером)
+          example: "2026-02-20T18:45:00Z"
+
+    ErrorResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Человекочитаемое описание ошибки
+          example: "Threat not found"
+        details:
+          type: string
+          description: Дополнительная информация
+          example: "No threat with MD5 d41d8cd98f00b204e9800998ecf8427e found"
