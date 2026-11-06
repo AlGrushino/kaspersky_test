@@ -263,6 +263,11 @@ func NewRouter(
 		nil,
 		StrictHTTPServerOptions{
 			RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+				var maxErr *http.MaxBytesError
+				if errors.As(err, &maxErr) {
+					writeJSONError(w, http.StatusRequestEntityTooLarge, "request body too large", "")
+					return
+				}
 				writeJSONError(w, http.StatusBadRequest, "invalid request body", err.Error())
 			},
 			ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
@@ -274,6 +279,13 @@ func NewRouter(
 
 	r := chi.NewRouter()
 
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		writeJSONError(w, http.StatusNotFound, "not found", r.URL.Path)
+	})
+	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed", r.Method)
+	})
+
 	r.Use(RequestID)
 	r.Use(Logger(log))
 	r.Use(Recovery(log))
@@ -284,6 +296,7 @@ func NewRouter(
 	r.Group(func(r chi.Router) {
 		r.Use(RateLimit(rateLimitRPS, rateLimitBurst))
 		r.Use(APIKey(apiKey))
+		r.Use(JSONBodyGuard)
 
 		HandlerWithOptions(strict, ChiServerOptions{
 			BaseRouter: r,
