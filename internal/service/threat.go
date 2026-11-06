@@ -11,6 +11,20 @@ type ThreatService struct{}
 func New() *ThreatService { return &ThreatService{} }
 
 func (s *ThreatService) Create(ctx context.Context, in domain.CreateThreatInput) (*domain.Threat, error) {
+	md5, err := domain.NormalizeMD5(in.MD5)
+	if err != nil {
+		return nil, err // ErrValidation
+	}
+	in.MD5 = md5
+
+	if in.SHA256 != nil {
+		sha, err := domain.NormalizeSHA256(*in.SHA256)
+		if err != nil {
+			return nil, err
+		}
+		in.SHA256 = &sha
+	}
+
 	t := in.ToThreat()
 	if err := t.Validate(); err != nil {
 		return nil, err // ErrValidation

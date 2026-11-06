@@ -29,3 +29,11 @@ test-integration:
 
 generate:
 	$(GO) generate ./...
+
+clean:
+	rm -rf $(BIN_DIR)
+	rm -f coverage.out coverage.html *.prof
+	go clean -testcache
+
+deps:
+	go mod tidy
