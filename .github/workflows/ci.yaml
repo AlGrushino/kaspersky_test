@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: '1.25.2'
+  GO_VERSION: '1.26.0'
 
 jobs:
   fmt:
@@ -39,7 +39,7 @@ jobs:
           cache: true
       - uses: golangci/golangci-lint-action@v9
         with:
-          version: latest
+          version: v2.15.0
 
   test:
     needs: fmt

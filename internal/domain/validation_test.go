@@ -22,6 +22,7 @@ func TestNormalizeMD5(t *testing.T) {
 		{"too short", "d41d8cd9", "", true},
 		{"non hex", "z41d8cd98f00b204e9800998ecf8427e", "", true},
 		{"empty", "", "", true},
+		{"internal spaces", "d41d8cd9 8f00b204e9800998ecf8427e", "", true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -55,7 +56,7 @@ func TestThreatValidate(t *testing.T) {
 	}{
 		{"valid minimal", func(*Threat) {}, false},
 		{"empty name", func(t *Threat) { t.Name = "" }, true},
-		{"name too long", func(t *Threat) { t.Name = string(make([]byte, 256)) }, true},
+		{"name too long", func(t *Threat) { t.Name = strings.Repeat("a", 256) }, true},
 		{"bad severity", func(t *Threat) { s := Severity("unknown"); t.Severity = &s }, true},
 		{"good severity", func(t *Threat) { s := SeverityHigh; t.Severity = &s }, false},
 		{"confidence negative", func(t *Threat) { t.Confidence = ptr(-1) }, true},
@@ -79,6 +80,21 @@ func TestThreatValidate(t *testing.T) {
 		{"name 256 cyrillic chars", func(t *Threat) {
 			t.Name = strings.Repeat("я", 256)
 		}, true},
+		{"bad type", func(t *Threat) { v := ThreatType("unknown"); t.Type = &v }, true},
+		{"good type", func(t *Threat) { v := TypeTrojan; t.Type = &v }, false},
+		{"bad status", func(t *Threat) { v := ThreatStatus("unknown"); t.Status = &v }, true},
+		{"good status", func(t *Threat) { v := StatusActive; t.Status = &v }, false},
+		{"description too long", func(t *Threat) { s := strings.Repeat("я", 4097); t.Description = &s }, true},
+		{"description 4096 cyrillic ok", func(t *Threat) { s := strings.Repeat("я", 4096); t.Description = &s }, false},
+		{"family too long", func(t *Threat) { s := strings.Repeat("a", 256); t.Family = &s }, true},
+		{"source too long", func(t *Threat) { s := strings.Repeat("a", 256); t.Source = &s }, true},
+		{"file_type too long", func(t *Threat) { s := strings.Repeat("a", 129); t.FileType = &s }, true},
+		{"tag 64 emoji ok", func(t *Threat) {
+			t.Tags = []string{strings.Repeat("😀", 64)}
+		}, false},
+		{"tag 65 emoji", func(t *Threat) {
+			t.Tags = []string{strings.Repeat("😀", 65)}
+		}, true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -90,6 +106,39 @@ func TestThreatValidate(t *testing.T) {
 			}
 			if !tc.wantErr && err != nil {
 				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestNormalizeSHA256(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      string
+		want    string
+		wantErr bool
+	}{
+		{"valid lower", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", false},
+		{"valid upper", "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", false},
+		{"trim spaces", "  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  ", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", false},
+		{"too short", "e3b0c442", "", true},
+		{"non hex", "zzzz", "", true},
+		{"empty", "", "", true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := NormalizeSHA256(tc.in)
+			if tc.wantErr {
+				if !errors.Is(err, ErrValidation) {
+					t.Fatalf("expected ErrValidation, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Fatalf("got %q, want %q", got, tc.want)
 			}
 		})
 	}
