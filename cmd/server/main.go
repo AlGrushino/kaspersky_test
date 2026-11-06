@@ -35,9 +35,10 @@ func run() error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: cfg.LogLevel,
-	})))
+	}))
+	slog.SetDefault(log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -66,7 +67,14 @@ func run() error {
 	svc := service.New(repo)
 	handler := api.NewHandler(svc)
 	health := api.NewHealthHandler(pool)
-	router := api.NewRouter(handler, health)
+	router := api.NewRouter(
+		handler,
+		health,
+		log,
+		cfg.RateLimitRPS,
+		cfg.RateLimitBurst,
+		cfg.APIKey,
+	)
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,

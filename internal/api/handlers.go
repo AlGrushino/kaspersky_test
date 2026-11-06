@@ -250,7 +250,14 @@ func errorBody(message, details string) ErrorResponse {
 	return body
 }
 
-func NewRouter(handler *ThreatHandler, health *HealthHandler) http.Handler {
+func NewRouter(
+	handler *ThreatHandler,
+	health *HealthHandler,
+	log *slog.Logger,
+	rateLimitRPS float64,
+	rateLimitBurst int,
+	apiKey string,
+) http.Handler {
 	strict := NewStrictHandlerWithOptions(
 		handler,
 		nil,
@@ -259,22 +266,33 @@ func NewRouter(handler *ThreatHandler, health *HealthHandler) http.Handler {
 				writeJSONError(w, http.StatusBadRequest, "invalid request body", err.Error())
 			},
 			ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-				slog.ErrorContext(r.Context(), "request failed", "error", err)
+				log.ErrorContext(r.Context(), "request failed", "error", err)
 				writeJSONError(w, http.StatusInternalServerError, "internal server error", "")
 			},
 		},
 	)
 
 	r := chi.NewRouter()
+
+	r.Use(RequestID)
+	r.Use(Logger(log))
+	r.Use(Recovery(log))
+
 	r.Get("/healthz", health.Healthz)
 	r.Get("/readyz", health.Readyz)
 
-	return HandlerWithOptions(strict, ChiServerOptions{
-		BaseRouter: r,
-		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			writeJSONError(w, http.StatusBadRequest, "invalid request", err.Error())
-		},
+	r.Group(func(r chi.Router) {
+		r.Use(RateLimit(rateLimitRPS, rateLimitBurst))
+		r.Use(APIKey(apiKey))
+
+		HandlerWithOptions(strict, ChiServerOptions{
+			BaseRouter: r,
+			ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+				writeJSONError(w, http.StatusBadRequest, "invalid request", err.Error())
+			},
+		})
 	})
+	return r
 }
 
 func writeJSONError(w http.ResponseWriter, status int, message, details string) {
