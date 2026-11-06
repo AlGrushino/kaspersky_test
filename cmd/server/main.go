@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"kaspersky_test/internal/api"
+	"kaspersky_test/internal/config"
 	"kaspersky_test/internal/repository/postgres"
 	"kaspersky_test/internal/service"
 	"kaspersky_test/migrations"
@@ -29,15 +30,19 @@ func main() {
 }
 
 func run() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: cfg.LogLevel,
+	})))
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		return fmt.Errorf("DATABASE_URL is required")
-	}
-
-	pool, err := pgxpool.New(ctx, dsn)
+	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return fmt.Errorf("create pool: %w", err)
 	}
@@ -51,21 +56,35 @@ func run() error {
 		return fmt.Errorf("run migrations: %w", err)
 	}
 
+	if cfg.RunMigrations {
+		if err := runMigrations(ctx, pool); err != nil {
+			return fmt.Errorf("run migrations: %w", err)
+		}
+	}
+
 	repo := postgres.New(pool)
 	svc := service.New(repo)
 	handler := api.NewHandler(svc)
-	router := api.NewRouter(handler)
+	health := api.NewHealthHandler(pool)
+	router := api.NewRouter(handler, health)
 
 	srv := &http.Server{
-		Addr:              envOr("HTTP_ADDR", ":8080"),
+		Addr:              cfg.HTTPAddr,
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	errCh := make(chan error, 1)
 	go func() {
-		slog.Info("http server listening", "addr", srv.Addr)
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		slog.Info("http server listening", "addr", cfg.HTTPAddr, "tls", cfg.TLSEnabled())
+
+		var err error
+		if cfg.TLSEnabled() {
+			err = srv.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile)
+		} else {
+			err = srv.ListenAndServe()
+		}
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
 	}()
@@ -75,7 +94,8 @@ func run() error {
 		return err
 	case <-ctx.Done():
 		slog.Info("shutting down")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeOut)
+
 		defer cancel()
 		return srv.Shutdown(shutdownCtx)
 	}
@@ -90,11 +110,4 @@ func runMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 		return err
 	}
 	return goose.UpContext(ctx, db, ".")
-}
-
-func envOr(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
 }

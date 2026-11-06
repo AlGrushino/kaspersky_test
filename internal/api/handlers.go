@@ -250,7 +250,7 @@ func errorBody(message, details string) ErrorResponse {
 	return body
 }
 
-func NewRouter(handler *ThreatHandler) http.Handler {
+func NewRouter(handler *ThreatHandler, health *HealthHandler) http.Handler {
 	strict := NewStrictHandlerWithOptions(
 		handler,
 		nil,
@@ -264,7 +264,11 @@ func NewRouter(handler *ThreatHandler) http.Handler {
 			},
 		},
 	)
+
 	r := chi.NewRouter()
+	r.Get("/healthz", health.Healthz)
+	r.Get("/readyz", health.Readyz)
+
 	return HandlerWithOptions(strict, ChiServerOptions{
 		BaseRouter: r,
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
