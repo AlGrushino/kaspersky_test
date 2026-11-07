@@ -1,4 +1,4 @@
-.PHONY: build vet fmt fmt-check lint test test-integration generate
+.PHONY: build run vet fmt fmt-check lint test test-integration generate up down clean deps dockle
 
 GO ?= go
 GOIMPORTS ?= goimports
@@ -9,6 +9,15 @@ APP_IMAGE ?= kaspersky_test-app:dev
 
 build:
 	$(GO) build ./...
+
+run:
+	$(GO) run ./cmd/server
+
+up:
+	docker compose up --build -d
+
+down:
+	docker compose down
 
 vet:
 	$(GO) vet ./...
@@ -33,7 +42,6 @@ generate:
 	$(GO) generate ./...
 
 clean:
-	rm -rf $(BIN_DIR)
 	rm -f coverage.out coverage.html *.prof
 	go clean -testcache
 

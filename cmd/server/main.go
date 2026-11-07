@@ -53,10 +53,6 @@ func run() error {
 		return fmt.Errorf("ping db: %w", err)
 	}
 
-	if err := runMigrations(ctx, pool); err != nil {
-		return fmt.Errorf("run migrations: %w", err)
-	}
-
 	if cfg.RunMigrations {
 		if err := runMigrations(ctx, pool); err != nil {
 			return fmt.Errorf("run migrations: %w", err)

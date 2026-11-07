@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
@@ -23,6 +24,7 @@ const testMD5 = "d41d8cd98f00b204e9800998ecf8427e"
 
 func setupDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
+	testcontainers.SkipIfProviderIsNotHealthy(t)
 	ctx := context.Background()
 
 	ctr, err := tcpostgres.Run(ctx,

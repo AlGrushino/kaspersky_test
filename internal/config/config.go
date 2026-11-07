@@ -35,7 +35,7 @@ func Load() (*Config, error) {
 		RateLimitRPS:    envFloat("RATE_LIMIT_RPS", 10),
 		RateLimitBurst:  envInt("RATE_LIMIT_BURST", 20),
 		APIKey:          os.Getenv("API_KEY"),
-		TLSCertFile:     os.Getenv("TLS_СERT_FILE"),
+		TLSCertFile:     os.Getenv("TLS_CERT_FILE"),
 		TLSKeyFile:      os.Getenv("TLS_KEY_FILE"),
 		ShutdownTimeOut: 10 * time.Second,
 	}

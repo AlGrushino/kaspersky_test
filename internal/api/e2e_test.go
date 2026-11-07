@@ -23,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
 	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 )
 
@@ -38,6 +39,7 @@ type e2eEnv struct {
 
 func setupE2E(t *testing.T) *e2eEnv {
 	t.Helper()
+	testcontainers.SkipIfProviderIsNotHealthy(t)
 	ctx := context.Background()
 
 	ctr, err := tcpostgres.Run(ctx,
