@@ -4,6 +4,8 @@ GO ?= go
 GOIMPORTS ?= goimports
 GOLANGCI ?= golangci-lint
 GOIMPORTS_VERSION ?= v0.47.0
+DOCKLE_IMAGE ?= goodwithtech/dockle:latest
+APP_IMAGE ?= kaspersky_test-app:dev
 
 build:
 	$(GO) build ./...
@@ -37,3 +39,7 @@ clean:
 
 deps:
 	go mod tidy
+
+dockle:
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+		$(DOCKLE_IMAGE) --exit-code 1 --exit-level warn $(APP_IMAGE)

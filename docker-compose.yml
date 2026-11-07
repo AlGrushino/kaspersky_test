@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: threats
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d threats"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  app:
+    build: .
+    image: kaspersky_test-app:dev
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/threats?sslmode=disable
+      RUN_MIGRATIONS: "true"
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

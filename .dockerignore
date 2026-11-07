@@ -1,0 +1,12 @@
+.git
+.gitignore
+*.md
+**/*.md
+**/*_test.go
+bin/
+tmp/
+docker-compose.yml
+.dockerignore
+Dockerfile
+.vscode/
+.idea/
