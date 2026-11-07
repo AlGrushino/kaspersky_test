@@ -18,6 +18,7 @@ type ctxKey int
 
 const requestIDKey ctxKey = iota
 
+// RequestID propagates an incoming X-Request-ID or generates a new one.
 func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := r.Header.Get("X-Request-ID")
@@ -30,6 +31,7 @@ func RequestID(next http.Handler) http.Handler {
 	})
 }
 
+// RequestIDFromContext returns the request ID stored in ctx, if any.
 func RequestIDFromContext(ctx context.Context) string {
 	if v, ok := ctx.Value(requestIDKey).(string); ok {
 		return v
@@ -37,6 +39,7 @@ func RequestIDFromContext(ctx context.Context) string {
 	return ""
 }
 
+// Logger logs each HTTP request with method, path, status, size and duration.
 func Logger(log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -60,6 +63,7 @@ func Logger(log *slog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
+// Recovery converts panics into JSON 500 responses and logs them.
 func Recovery(log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -85,6 +89,7 @@ type ipLimiter struct {
 	burst    int
 }
 
+// newIPLimiter creates a per-IP rate limiter with the given rate and burst size.
 func newIPLimiter(rps float64, burst int) *ipLimiter {
 	return &ipLimiter{
 		limiters: make(map[string]*rate.Limiter),
@@ -105,6 +110,7 @@ func (l *ipLimiter) get(ip string) *rate.Limiter {
 	return lim
 }
 
+// RateLimit limits requests per client IP and returns 429 when the limit is exceeded.
 func RateLimit(rps float64, burst int) func(http.Handler) http.Handler {
 	limiter := newIPLimiter(rps, burst)
 	return func(next http.Handler) http.Handler {
@@ -120,6 +126,7 @@ func RateLimit(rps float64, burst int) func(http.Handler) http.Handler {
 	}
 }
 
+// clientIP extracts the client IP from proxy headers or the remote address.
 func clientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		if i := strings.IndexByte(xff, ','); i >= 0 {
@@ -137,6 +144,7 @@ func clientIP(r *http.Request) string {
 	return host
 }
 
+// APIKey requires a matching X-API-Key header for write requests when key is non-empty.
 func APIKey(key string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		if key == "" {

@@ -1,3 +1,4 @@
+// Package service implements the business logic for managing threats.
 package service
 
 import (
@@ -8,14 +9,17 @@ import (
 	"time"
 )
 
+// ThreatService coordinates validation and persistence of threats.
 type ThreatService struct {
 	repo repository.ThreatRepository
 }
 
+// New returns a ThreatService backed by repo.
 func New(repo repository.ThreatRepository) *ThreatService {
 	return &ThreatService{repo: repo}
 }
 
+// Create validates and stores a new threat, setting server-managed timestamps.
 func (s *ThreatService) Create(ctx context.Context, in domain.CreateThreatInput) (*domain.Threat, error) {
 	md5, err := domain.NormalizeMD5(in.MD5)
 	if err != nil {
@@ -44,6 +48,8 @@ func (s *ThreatService) Create(ctx context.Context, in domain.CreateThreatInput)
 	}
 	return s.repo.Create(ctx, &t)
 }
+
+// Get returns a threat by MD5, normalizing the hash before lookup.
 func (s *ThreatService) Get(ctx context.Context, md5 string) (*domain.Threat, error) {
 	md5, err := domain.NormalizeMD5(md5)
 	if err != nil {
@@ -51,6 +57,8 @@ func (s *ThreatService) Get(ctx context.Context, md5 string) (*domain.Threat, er
 	}
 	return s.repo.GetByMD5(ctx, md5)
 }
+
+// Update fully replaces an existing threat and refreshes updated_at.
 func (s *ThreatService) Update(ctx context.Context, md5 string, in domain.UpdateThreatInput) (*domain.Threat, error) {
 	md5, err := domain.NormalizeMD5(md5)
 	if err != nil {

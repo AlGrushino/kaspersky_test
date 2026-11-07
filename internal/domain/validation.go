@@ -22,6 +22,7 @@ const (
 	maxTagLen         = 64
 )
 
+// NormalizeMD5 trims, lower-cases and validates an MD5 hash.
 func NormalizeMD5(s string) (string, error) {
 	normalized := strings.ToLower(strings.TrimSpace(s))
 
@@ -31,6 +32,7 @@ func NormalizeMD5(s string) (string, error) {
 	return normalized, nil
 }
 
+// NormalizeSHA256 trims, lower-cases and validates a SHA-256 hash.
 func NormalizeSHA256(s string) (string, error) {
 	normalized := strings.ToLower(strings.TrimSpace(s))
 	if !sha256Pattern.MatchString(normalized) {
@@ -39,6 +41,7 @@ func NormalizeSHA256(s string) (string, error) {
 	return normalized, nil
 }
 
+// Valid reports whether s is a supported severity level.
 func (s Severity) Valid() bool {
 	switch s {
 	case SeverityLow, SeverityMedium, SeverityHigh, SeverityCritical:
@@ -47,6 +50,7 @@ func (s Severity) Valid() bool {
 	return false
 }
 
+// Valid reports whether t is a supported threat type.
 func (t ThreatType) Valid() bool {
 	switch t {
 	case TypeTrojan, TypeVirus, TypeWorm, TypeRansomware, TypeSpyware,
@@ -56,6 +60,7 @@ func (t ThreatType) Valid() bool {
 	return false
 }
 
+// Valid reports whether s is a supported threat status.
 func (s ThreatStatus) Valid() bool {
 	switch s {
 	case StatusActive, StatusInactive, StatusFalsePositive, StatusArchived:
@@ -64,6 +69,7 @@ func (s ThreatStatus) Valid() bool {
 	return false
 }
 
+// Validate checks the domain invariants of a threat and returns ErrValidation on failure.
 func (t *Threat) Validate() error {
 	if l := utf8.RuneCountInString(strings.TrimSpace(t.Name)); l == 0 || l > maxNameLen {
 		return fmt.Errorf("%w: name must be 1..%d chars", ErrValidation, maxNameLen)

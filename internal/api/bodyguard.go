@@ -5,8 +5,10 @@ import (
 	"strings"
 )
 
+// maxBodyBytes is the maximum allowed request body size (1 MiB).
 const maxBodyBytes int64 = 1 << 20
 
+// JSONBodyGuard enforces the JSON content type and body size limit for write requests.
 func JSONBodyGuard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost && r.Method != http.MethodPut {

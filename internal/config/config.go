@@ -1,3 +1,4 @@
+// Package config loads and validates service configuration from environment variables.
 package config
 
 import (
@@ -9,6 +10,7 @@ import (
 	"time"
 )
 
+// Config contains all runtime settings of the service.
 type Config struct {
 	HTTPAddr      string
 	DatabaseURL   string
@@ -26,6 +28,7 @@ type Config struct {
 	ShutdownTimeOut time.Duration
 }
 
+// Load reads configuration from environment variables and validates it.
 func Load() (*Config, error) {
 	cfg := &Config{
 		HTTPAddr:        envOr("HTTP_ADDR", ":8080"),
@@ -62,6 +65,7 @@ func (c *Config) validate() error {
 	return nil
 }
 
+// TLSEnabled reports whether both the TLS certificate and key are configured.
 func (c *Config) TLSEnabled() bool {
 	return c.TLSCertFile != "" && c.TLSKeyFile != ""
 }

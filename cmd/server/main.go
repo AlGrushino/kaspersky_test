@@ -1,3 +1,4 @@
+// Command server starts the threat information exchange REST service.
 package main
 
 import (
@@ -22,6 +23,7 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
+// main is the process entry point.
 func main() {
 	if err := run(); err != nil {
 		slog.Error("server failed", "error", err)
@@ -29,6 +31,7 @@ func main() {
 	}
 }
 
+// run loads configuration, initializes dependencies and serves HTTP until shutdown.
 func run() error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -105,6 +108,7 @@ func run() error {
 	}
 }
 
+// runMigrations applies the embedded goose migrations to the database.
 func runMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	db := stdlib.OpenDBFromPool(pool)
 	defer db.Close()

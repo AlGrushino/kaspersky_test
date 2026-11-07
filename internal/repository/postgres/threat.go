@@ -19,6 +19,7 @@ const threatColumns = `
 	first_seen_at, last_seen_at, created_at, updated_at
 `
 
+// Create inserts a threat and maps unique MD5 violations to domain.ErrConflict.
 func (r *ThreatRepo) Create(ctx context.Context, t *domain.Threat) (*domain.Threat, error) {
 	const q = `
 		INSERT INTO threats (
@@ -45,6 +46,7 @@ func (r *ThreatRepo) Create(ctx context.Context, t *domain.Threat) (*domain.Thre
 	return created, nil
 }
 
+// GetByMD5 returns a threat by MD5 or domain.ErrNotFound if it does not exist.
 func (r *ThreatRepo) GetByMD5(ctx context.Context, md5 string) (*domain.Threat, error) {
 	const q = `SELECT ` + threatColumns + ` FROM threats WHERE md5 = $1`
 
@@ -59,6 +61,7 @@ func (r *ThreatRepo) GetByMD5(ctx context.Context, md5 string) (*domain.Threat, 
 	return threat, nil
 }
 
+// Update fully replaces the mutable fields of a threat or returns domain.ErrNotFound.
 func (r *ThreatRepo) Update(ctx context.Context, t *domain.Threat) (*domain.Threat, error) {
 	const q = `
 		UPDATE threats SET
@@ -96,6 +99,7 @@ func (r *ThreatRepo) Update(ctx context.Context, t *domain.Threat) (*domain.Thre
 	return updated, nil
 }
 
+// scanThreat scans a database row into a domain.Threat.
 func scanThreat(row pgx.Row) (*domain.Threat, error) {
 	var t domain.Threat
 	var severity, threatType, status *string
@@ -126,6 +130,7 @@ func scanThreat(row pgx.Row) (*domain.Threat, error) {
 	return &t, nil
 }
 
+// mapCreateError translates PostgreSQL unique-violation errors into domain errors.
 func mapCreateError(err error) error {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == pgUniqueViolation {

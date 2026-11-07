@@ -13,22 +13,26 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// ThreatService defines the business operations used by HTTP handlers.
 type ThreatService interface {
 	Create(ctx context.Context, in domain.CreateThreatInput) (*domain.Threat, error)
 	Get(ctx context.Context, md5 string) (*domain.Threat, error)
 	Update(ctx context.Context, md5 string, in domain.UpdateThreatInput) (*domain.Threat, error)
 }
 
+// ThreatHandler implements the generated strict server interface.
 type ThreatHandler struct {
 	service ThreatService
 }
 
+// NewHandler returns a ThreatHandler backed by service.
 func NewHandler(service ThreatService) *ThreatHandler {
 	return &ThreatHandler{service: service}
 }
 
 var _ StrictServerInterface = (*ThreatHandler)(nil)
 
+// GetInfoByMd5 handles GET /info/{md5}.
 func (h *ThreatHandler) GetInfoByMd5(ctx context.Context, request GetInfoByMd5RequestObject) (GetInfoByMd5ResponseObject, error) {
 	md5, err := domain.NormalizeMD5(request.Md5)
 	if err != nil {
@@ -47,6 +51,7 @@ func (h *ThreatHandler) GetInfoByMd5(ctx context.Context, request GetInfoByMd5Re
 	}
 }
 
+// CreateThreat handles POST /info.
 func (h *ThreatHandler) CreateThreat(ctx context.Context, request CreateThreatRequestObject) (CreateThreatResponseObject, error) {
 	if request.Body == nil {
 		return CreateThreat400JSONResponse(errorBody("invalid request body", "body is required")), nil
@@ -77,6 +82,7 @@ func (h *ThreatHandler) CreateThreat(ctx context.Context, request CreateThreatRe
 	}
 }
 
+// UpdateThreat handles PUT /info/{md5} as a full replacement.
 func (h *ThreatHandler) UpdateThreat(ctx context.Context, request UpdateThreatRequestObject) (UpdateThreatResponseObject, error) {
 	if request.Body == nil {
 		return UpdateThreat400JSONResponse(errorBody("invalid request body", "body is required")), nil
@@ -106,6 +112,7 @@ func (h *ThreatHandler) UpdateThreat(ctx context.Context, request UpdateThreatRe
 	}
 }
 
+// fromCreateRequest converts an OpenAPI create request into a domain input.
 func fromCreateRequest(r ThreatCreateRequest) (domain.CreateThreatInput, error) {
 	md5, err := domain.NormalizeMD5(r.Md5)
 	if err != nil {
@@ -149,6 +156,7 @@ func fromCreateRequest(r ThreatCreateRequest) (domain.CreateThreatInput, error) 
 	return in, nil
 }
 
+// fromUpdateRequest converts an OpenAPI update request into a domain input.
 func fromUpdateRequest(r ThreatUpdateRequest) (domain.UpdateThreatInput, error) {
 	in := domain.UpdateThreatInput{
 		Name:        r.Name,
@@ -186,6 +194,7 @@ func fromUpdateRequest(r ThreatUpdateRequest) (domain.UpdateThreatInput, error) 
 	return in, nil
 }
 
+// toThreatResponse converts a domain threat into the API response model.
 func toThreatResponse(t *domain.Threat) ThreatResponse {
 	resp := ThreatResponse{
 		Md5:         t.MD5,
@@ -242,6 +251,7 @@ func toThreatResponse(t *domain.Threat) ThreatResponse {
 	return resp
 }
 
+// errorBody builds an ErrorResponse, omitting empty details.
 func errorBody(message, details string) ErrorResponse {
 	body := ErrorResponse{Message: message}
 	if details != "" {
@@ -250,6 +260,7 @@ func errorBody(message, details string) ErrorResponse {
 	return body
 }
 
+// NewRouter builds the HTTP router with middleware, health checks and API routes.
 func NewRouter(
 	handler *ThreatHandler,
 	health *HealthHandler,
@@ -308,6 +319,7 @@ func NewRouter(
 	return r
 }
 
+// writeJSONError writes a JSON ErrorResponse with the given status code.
 func writeJSONError(w http.ResponseWriter, status int, message, details string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

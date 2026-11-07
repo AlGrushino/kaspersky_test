@@ -1,11 +1,18 @@
+// Package domain defines threat entities, enums, validation rules and errors.
 package domain
 
 import "time"
 
+// Severity describes the danger level of a threat.
 type Severity string
+
+// ThreatType describes the class of malicious software.
 type ThreatType string
+
+// ThreatStatus describes the lifecycle state of a threat record.
 type ThreatStatus string
 
+// Supported severity levels.
 const (
 	SeverityLow      Severity = "low"
 	SeverityMedium   Severity = "medium"
@@ -13,6 +20,7 @@ const (
 	SeverityCritical Severity = "critical"
 )
 
+// Supported threat types.
 const (
 	TypeTrojan     ThreatType = "trojan"
 	TypeVirus      ThreatType = "virus"
@@ -25,6 +33,7 @@ const (
 	TypeOther      ThreatType = "other"
 )
 
+// Supported threat statuses.
 const (
 	StatusActive        ThreatStatus = "active"
 	StatusInactive      ThreatStatus = "inactive"
@@ -32,6 +41,7 @@ const (
 	StatusArchived      ThreatStatus = "archived"
 )
 
+// Threat is the domain model of a threat record.
 type Threat struct {
 	MD5         string
 	Name        string
@@ -52,6 +62,7 @@ type Threat struct {
 	UpdatedAt   time.Time
 }
 
+// CreateThreatInput contains fields accepted when creating a threat.
 type CreateThreatInput struct {
 	MD5         string
 	Name        string
@@ -70,6 +81,8 @@ type CreateThreatInput struct {
 	LastSeenAt  *time.Time
 }
 
+// UpdateThreatInput contains fields accepted when fully replacing a threat.
+// The MD5 hash is supplied separately and cannot be changed.
 type UpdateThreatInput struct {
 	Name        string
 	Description *string
@@ -87,6 +100,7 @@ type UpdateThreatInput struct {
 	LastSeenAt  *time.Time
 }
 
+// ToThreat converts the create input into a Threat model.
 func (in CreateThreatInput) ToThreat() Threat {
 	return Threat{
 		MD5:         in.MD5,
@@ -107,6 +121,7 @@ func (in CreateThreatInput) ToThreat() Threat {
 	}
 }
 
+// ToThreat converts the update input into a Threat model with the given MD5.
 func (in UpdateThreatInput) ToThreat(md5 string) Threat {
 	return Threat{
 		MD5:         md5,

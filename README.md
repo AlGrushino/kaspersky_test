@@ -252,10 +252,14 @@ Unit-тесты покрывают валидацию domain, service с fake re
 | `make lint` | `golangci-lint run` |
 | `make test` | Unit-тесты |
 | `make test-integration` | Интеграционные тесты |
+| `make test.coverage` | Тесты с отчётом покрытия |
+| `make test.html` | HTML-отчёт покрытия (`coverage.html`) |
+| `make test.show` | Открыть HTML-отчёт в браузере |
 | `make generate` | Генерация кода по OpenAPI |
 | `make clean` | Очистка артефактов |
 | `make deps` | `go mod tidy` |
 | `make dockle` | Проверка образа через Dockle |
+| `make help` | Список доступных команд (цель по умолчанию) |
 
 ## Безопасность
 
