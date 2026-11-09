@@ -62,7 +62,7 @@ func sampleThreat() *domain.Threat {
 
 func newTestRouter(svc ThreatService) http.Handler {
 	h := NewHandler(svc)
-	health := NewHealthHandler(fakePinger{})
+	health := NewHealthHandler(fakePinger{}, fakePinger{})
 	return NewRouter(h, health, testLogger(), 1000, 1000, "")
 }
 

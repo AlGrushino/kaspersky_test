@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -66,6 +68,36 @@ func (f *fakeRepo) Update(_ context.Context, t *domain.Threat) (*domain.Threat, 
 	return &cp, nil
 }
 
+type fakeCache struct {
+	store map[string]*domain.Threat
+}
+
+func (f *fakeCache) Get(ctx context.Context, md5 string) (*domain.Threat, error) {
+	t, ok := f.store[md5]
+	if !ok {
+		return nil, domain.ErrNotFound
+	}
+	return t, nil
+}
+
+func (f *fakeCache) Set(ctx context.Context, t *domain.Threat) error {
+	_, err := json.Marshal(t)
+	if err != nil {
+		return fmt.Errorf("marshal: %w", err)
+	}
+	f.store["threat:"+t.MD5] = t
+	return nil
+}
+
+func (f *fakeCache) Delete(ctx context.Context, md5 string) error {
+	delete(f.store, md5)
+	return nil
+}
+
+func newFakeCache() *fakeCache {
+	return &fakeCache{store: make(map[string]*domain.Threat)}
+}
+
 func ptr[T any](v T) *T { return &v }
 
 const (
@@ -84,7 +116,8 @@ func validInput() domain.CreateThreatInput {
 
 func TestCreate_Success(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo)
+	cache := newFakeCache()
+	svc := New(repo, cache)
 
 	in := validInput()
 	before := time.Now().UTC()
@@ -112,7 +145,8 @@ func TestCreate_Success(t *testing.T) {
 
 func TestCreate_NormalizesMD5(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo)
+	cache := newFakeCache()
+	svc := New(repo, cache)
 
 	in := validInput()
 	in.MD5 = "D41D8CD98F00B204E9800998ECF8427E"
@@ -128,7 +162,8 @@ func TestCreate_NormalizesMD5(t *testing.T) {
 
 func TestCreate_NormalizesSHA256(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo)
+	cache := newFakeCache()
+	svc := New(repo, cache)
 
 	in := validInput()
 	in.SHA256 = ptr("E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855")
@@ -145,7 +180,8 @@ func TestCreate_NormalizesSHA256(t *testing.T) {
 
 func TestCreate_InvalidMD5(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo)
+	cache := newFakeCache()
+	svc := New(repo, cache)
 
 	in := validInput()
 	in.MD5 = "not-a-md5"
@@ -161,7 +197,8 @@ func TestCreate_InvalidMD5(t *testing.T) {
 
 func TestCreate_ValidationError(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo)
+	cache := newFakeCache()
+	svc := New(repo, cache)
 
 	in := validInput()
 	in.Name = ""
@@ -177,7 +214,8 @@ func TestCreate_ValidationError(t *testing.T) {
 
 func TestCreate_Conflict(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo)
+	cache := newFakeCache()
+	svc := New(repo, cache)
 
 	if _, err := svc.Create(context.Background(), validInput()); err != nil {
 		t.Fatalf("seed create failed: %v", err)
@@ -191,7 +229,8 @@ func TestCreate_Conflict(t *testing.T) {
 
 func TestCreate_TagsNilBecomesEmpty(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo)
+	cache := newFakeCache()
+	svc := New(repo, cache)
 
 	in := validInput()
 	in.Tags = nil
@@ -207,7 +246,8 @@ func TestCreate_TagsNilBecomesEmpty(t *testing.T) {
 
 func TestGet_Success(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo)
+	cache := newFakeCache()
+	svc := New(repo, cache)
 
 	if _, err := svc.Create(context.Background(), validInput()); err != nil {
 		t.Fatalf("seed create failed: %v", err)
@@ -224,7 +264,8 @@ func TestGet_Success(t *testing.T) {
 
 func TestGet_NormalizesMD5(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo)
+	cache := newFakeCache()
+	svc := New(repo, cache)
 
 	if _, err := svc.Create(context.Background(), validInput()); err != nil {
 		t.Fatalf("seed create failed: %v", err)
@@ -241,7 +282,8 @@ func TestGet_NormalizesMD5(t *testing.T) {
 
 func TestGet_NotFound(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo)
+	cache := newFakeCache()
+	svc := New(repo, cache)
 
 	_, err := svc.Get(context.Background(), testMD5Alt)
 	if !errors.Is(err, domain.ErrNotFound) {
@@ -251,7 +293,8 @@ func TestGet_NotFound(t *testing.T) {
 
 func TestGet_InvalidMD5(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo)
+	cache := newFakeCache()
+	svc := New(repo, cache)
 
 	_, err := svc.Get(context.Background(), "bad")
 	if !errors.Is(err, domain.ErrValidation) {
@@ -264,7 +307,8 @@ func TestGet_InvalidMD5(t *testing.T) {
 
 func TestUpdate_Success(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo)
+	cache := newFakeCache()
+	svc := New(repo, cache)
 
 	created, err := svc.Create(context.Background(), validInput())
 	if err != nil {
@@ -298,7 +342,8 @@ func TestUpdate_Success(t *testing.T) {
 
 func TestUpdate_FullReplace(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo)
+	cache := newFakeCache()
+	svc := New(repo, cache)
 
 	in := validInput()
 	in.Description = ptr("original description")
@@ -328,7 +373,8 @@ func TestUpdate_FullReplace(t *testing.T) {
 
 func TestUpdate_NotFound(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo)
+	cache := newFakeCache()
+	svc := New(repo, cache)
 
 	_, err := svc.Update(context.Background(), testMD5Alt, domain.UpdateThreatInput{Name: "X"})
 	if !errors.Is(err, domain.ErrNotFound) {
@@ -338,7 +384,8 @@ func TestUpdate_NotFound(t *testing.T) {
 
 func TestUpdate_InvalidMD5(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo)
+	cache := newFakeCache()
+	svc := New(repo, cache)
 
 	_, err := svc.Update(context.Background(), "bad", domain.UpdateThreatInput{Name: "X"})
 	if !errors.Is(err, domain.ErrValidation) {
@@ -351,7 +398,8 @@ func TestUpdate_InvalidMD5(t *testing.T) {
 
 func TestUpdate_ValidationError(t *testing.T) {
 	repo := newFakeRepo()
-	svc := New(repo)
+	cache := newFakeCache()
+	svc := New(repo, cache)
 
 	if _, err := svc.Create(context.Background(), validInput()); err != nil {
 		t.Fatalf("seed create failed: %v", err)

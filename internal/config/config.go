@@ -26,6 +26,9 @@ type Config struct {
 	TLSKeyFile  string
 
 	ShutdownTimeOut time.Duration
+
+	RedisURL string
+	CacheTTL time.Duration
 }
 
 // Load reads configuration from environment variables and validates it.
@@ -41,6 +44,8 @@ func Load() (*Config, error) {
 		TLSCertFile:     os.Getenv("TLS_CERT_FILE"),
 		TLSKeyFile:      os.Getenv("TLS_KEY_FILE"),
 		ShutdownTimeOut: 10 * time.Second,
+		RedisURL:        os.Getenv("REDIS_URL"),
+		CacheTTL:        envDuration("CACHE_TTL", 5*time.Minute),
 	}
 
 	if err := cfg.validate(); err != nil {
@@ -55,6 +60,9 @@ func (c *Config) validate() error {
 	}
 	if (c.TLSCertFile == "") != (c.TLSKeyFile == "") {
 		return fmt.Errorf("TLS_CERT_FILE and TLS_KEY_FILE must be set together")
+	}
+	if (c.CacheTTL != 0) && (c.RedisURL == "") {
+		return fmt.Errorf("CACHE_TTL and REDIS_URL must be set together")
 	}
 	if c.RateLimitRPS <= 0 {
 		return fmt.Errorf("RATE_LIMIT_RPS must be > 0")
@@ -127,4 +135,16 @@ func parseLogLevel(s string) slog.Level {
 	default:
 		return slog.LevelInfo
 	}
+}
+
+func envDuration(key string, def time.Duration) time.Duration {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return def
+	}
+	return d
 }

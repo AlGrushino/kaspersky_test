@@ -16,6 +16,20 @@ services:
       retries: 10
       start_period: 10s
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    command: ["redis-server", "--appendonly", "yes"]
+
   app:
     build: .
     image: kaspersky_test-app:dev
@@ -23,11 +37,16 @@ services:
       - "8080:8080"
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/threats?sslmode=disable
+      REDIS_URL: redis://redis:6379/0
+      CACHE_TTL: 5m
       RUN_MIGRATIONS: "true"
       LOG_LEVEL: info
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
 
 volumes:
   pgdata:
+  redisdata:

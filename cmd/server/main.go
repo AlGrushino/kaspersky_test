@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"kaspersky_test/internal/api"
+	"kaspersky_test/internal/cache/redis_cache"
 	"kaspersky_test/internal/config"
 	"kaspersky_test/internal/repository/postgres"
 	"kaspersky_test/internal/service"
@@ -21,6 +22,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
+	"github.com/redis/go-redis/v9"
 )
 
 // main is the process entry point.
@@ -63,9 +65,36 @@ func run() error {
 	}
 
 	repo := postgres.New(pool)
-	svc := service.New(repo)
+
+	var threatCache redis_cache.ThreatCache
+	var redisClient *redis.Client
+
+	if cfg.RedisURL != "" {
+		opts, err := redis.ParseURL(cfg.RedisURL)
+		if err != nil {
+			return fmt.Errorf("parse redis url: %w", err)
+		}
+
+		redisClient = redis.NewClient(opts)
+		defer redisClient.Close()
+		if err := redisClient.Ping(ctx).Err(); err != nil {
+			return fmt.Errorf("redis ping: %w", err)
+		}
+		threatCache = *redis_cache.NewThreatCache(redisClient, cfg.CacheTTL)
+		slog.Info("redis cache enabled", "ttl", cfg.CacheTTL)
+	} else {
+		slog.Info("redis cache disabled (REDIS_URL is empty)")
+	}
+
+	svc := service.New(repo, &threatCache)
 	handler := api.NewHandler(svc)
-	health := api.NewHealthHandler(pool)
+
+	var cachePinger api.Pinger
+	if redisClient != nil {
+		cachePinger = redis_cache.NewPingerAdapter(redisClient)
+	}
+
+	health := api.NewHealthHandler(pool, cachePinger)
 	router := api.NewRouter(
 		handler,
 		health,

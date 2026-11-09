@@ -3,20 +3,24 @@ package service
 
 import (
 	"context"
+	"errors"
+	"kaspersky_test/internal/cache"
 	"kaspersky_test/internal/domain"
 	"kaspersky_test/internal/repository"
+	"log/slog"
 
 	"time"
 )
 
 // ThreatService coordinates validation and persistence of threats.
 type ThreatService struct {
-	repo repository.ThreatRepository
+	repo  repository.ThreatRepository
+	cache cache.ThreatCache
 }
 
 // New returns a ThreatService backed by repo.
-func New(repo repository.ThreatRepository) *ThreatService {
-	return &ThreatService{repo: repo}
+func New(repo repository.ThreatRepository, cache cache.ThreatCache) *ThreatService {
+	return &ThreatService{repo: repo, cache: cache}
 }
 
 // Create validates and stores a new threat, setting server-managed timestamps.
@@ -55,7 +59,27 @@ func (s *ThreatService) Get(ctx context.Context, md5 string) (*domain.Threat, er
 	if err != nil {
 		return nil, err
 	}
-	return s.repo.GetByMD5(ctx, md5)
+
+	if s.cache != nil {
+		t, err := s.cache.Get(ctx, md5)
+		if err == nil {
+			return t, nil
+		} else if !errors.Is(err, domain.ErrNotFound) {
+			slog.WarnContext(ctx, "cache get failed", "md5", md5, "err", err)
+		}
+	}
+
+	t, err := s.repo.GetByMD5(ctx, md5)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.cache != nil {
+		if err := s.cache.Set(ctx, t); err != nil {
+			slog.WarnContext(ctx, "cache set failed", "md5", md5, "err", err)
+		}
+	}
+	return t, nil
 }
 
 // Update fully replaces an existing threat and refreshes updated_at.
@@ -82,5 +106,16 @@ func (s *ThreatService) Update(ctx context.Context, md5 string, in domain.Update
 
 	t.UpdatedAt = time.Now().UTC()
 
-	return s.repo.Update(ctx, &t)
+	newThreat, err := s.repo.Update(ctx, &t)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.cache != nil {
+		err := s.cache.Delete(ctx, md5)
+		if err != nil {
+			slog.WarnContext(ctx, "cache delete failed", "md5", md5, "error", err)
+		}
+	}
+	return newThreat, nil
 }

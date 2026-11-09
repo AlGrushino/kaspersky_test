@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"kaspersky_test/internal/api"
+	"kaspersky_test/internal/cache/redis_cache"
 	"kaspersky_test/internal/repository/postgres"
 	"kaspersky_test/internal/service"
 	"kaspersky_test/migrations"
@@ -22,9 +23,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
 )
 
 const (
@@ -67,9 +70,28 @@ func setupE2E(t *testing.T) *e2eEnv {
 	require.NoError(t, goose.UpContext(ctx, db, "."))
 
 	repo := postgres.New(pool)
-	svc := service.New(repo)
+
+	redisCtr, err := tcredis.Run(ctx, "redis:7-alpine")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = redisCtr.Terminate(ctx) })
+
+	redisEndpoint, err := redisCtr.Endpoint(ctx, "")
+	require.NoError(t, err)
+
+	rdb := redis.NewClient(&redis.Options{Addr: redisEndpoint})
+	t.Cleanup(func() { _ = rdb.Close() })
+
+	cache := redis_cache.NewThreatCache(rdb, 5*time.Minute)
+
+	svc := service.New(repo, cache)
 	handler := api.NewHandler(svc)
-	health := api.NewHealthHandler(pool)
+
+	var cachePinger api.Pinger
+	if rdb != nil {
+		cachePinger = redis_cache.NewPingerAdapter(rdb)
+	}
+
+	health := api.NewHealthHandler(pool, cachePinger)
 
 	logger := testLogger()
 	router := api.NewRouter(handler, health, logger, 1000, 1000, "")
