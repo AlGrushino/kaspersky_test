@@ -11,6 +11,11 @@ import (
 	"kaspersky_test/internal/domain"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	metrics "github.com/slok/go-http-metrics/metrics/prometheus"
+	"github.com/slok/go-http-metrics/middleware"
+	middlewarestd "github.com/slok/go-http-metrics/middleware/std"
 )
 
 // ThreatService defines the business operations used by HTTP handlers.
@@ -289,6 +294,15 @@ func NewRouter(
 	)
 
 	r := chi.NewRouter()
+	registry := prometheus.NewRegistry()
+
+	recorder := metrics.NewRecorder(metrics.Config{
+		Registry: registry,
+	})
+
+	mdlw := middleware.New(middleware.Config{
+		Recorder: recorder,
+	})
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusNotFound, "not found", r.URL.Path)
@@ -297,10 +311,14 @@ func NewRouter(
 		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed", r.Method)
 	})
 
+	r.Use(func(next http.Handler) http.Handler {
+		return middlewarestd.Handler("", mdlw, next)
+	})
 	r.Use(RequestID)
 	r.Use(Logger(log))
 	r.Use(Recovery(log))
 
+	r.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 	r.Get("/healthz", health.Healthz)
 	r.Get("/readyz", health.Readyz)
 
